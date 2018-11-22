@@ -1,0 +1,544 @@
+install.packages("openxlsx")
+install.packages("dplyr")
+# install.packages("xlsx")
+install.packages("stringi")
+install.packages("writexl")
+install.packages("RODBC")
+install.packages("RMySQL")
+install.packages("DBI")
+# install.packages("pillar")
+
+version
+rm(list = ls())
+#library("xlsx")
+library("openxlsx")
+library("dplyr")
+library("stringi")
+library("writexl") 
+# library(RODBC)
+# library(RMySQL)
+# library(DBI)
+
+# installed.packages()
+setwd ("//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Input_Files")
+#  con2 <- odbcConnectExcel2007(wb)
+#  data <- sqlFetch(con2, "Order Level - Net Demand") # Provide name of sheet
+#  nrow(data)  
+
+
+#=====================================================================================================================================================================
+              #READING ALL THE TEMPLATES FROM INPUT_FILES' Xlsx FOLDER#
+#======================================================================================================================================================================
+#Reading TPY_TEMPLATE  file
+tpy_all= read.xlsx("TPY_Template_bms.xlsx",sheet = 'Order Level - Net Demand',startRow = 8,colNames = TRUE,rowNames = FALSE )
+
+#Reading TPY_Wholly file
+tpy_wholly = read.xlsx("TPY_Template_Wholly - Copy.xlsx",sheet = 'Order Level - Net Demand',startRow = 8,colNames = TRUE,rowNames = FALSE )
+
+#Reading DCI Template
+dci_data =  read.xlsx("DCI_Template_Updated.xlsx",sheet = 'Order Level - Net Demand',startRow = 8,colNames = TRUE,rowNames = FALSE )
+
+#Reading Parts Templates for all 3 regions
+
+parts_amer = read.xlsx("Parts_Template_AMER_Updated_1.1.xlsx",sheet = 'Order Level - Net Demand',startRow = 8,colNames = TRUE,rowNames = FALSE )
+parts_emea = read.xlsx("Parts_Template_EMEA.xlsx",sheet = 'Order Level - Net Demand',startRow = 8,colNames = TRUE,rowNames = FALSE )
+parts_apj = read.xlsx("Parts_Template_APJ.xlsx",sheet = 'Order Level - Net Demand',startRow = 8,colNames = TRUE,rowNames = FALSE )
+
+
+#Reading Wholly_owned manufacturers list
+wholly_owned = read.xlsx("Wholly_Owned_list_updated.xlsx", sheet = "Wholly_owned", startRow = 1)
+
+
+#Reading unmap file  
+unmap = read.xlsx("Unmapped - FY19Q3.xlsx",sheet = "Unmapped Data", startRow = 1,colNames = TRUE,rowNames = FALSE)
+
+
+#Reading mismap file
+mismap = read.xlsx("Global Tier 1_2.xlsx",sheet = "3P Data",startRow = 1,colNames = TRUE,rowNames = FALSE)
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+#=========================================================================================================================================================================
+#FILTERING TPY_WHOLLY DATA#
+#=========================================================================================================================================================================
+
+colnames(tpy_wholly)
+names(tpy_wholly)[18] = "Partner Name"
+# unique(tpy_wholly$`Manufacturer Name`)
+
+#Filtering 8 DCI Manufacturers from Column "Manufacturer Name"
+dci_manf = c("Dell","Dell-APC","TrippLite","Emerson Network Power","Emerson",
+             "American Power Conversion","Avocent Corporation","Eaton","Liebert Corp")
+
+#Removing DCI manufacturers if any
+tpy_wholly = tpy_wholly[!tpy_wholly$Manufacturer.Name%in% dci_manf,]
+
+#Changing Snp Lob Level 5 to 3rd Party for DCI n Parts
+unique(tpy_wholly$SnP.LOB.Level.5)
+
+tpy_wholly$SnP.LOB.Level.5[tpy_wholly$SnP.LOB.Level.5 %in% "DCI"] = "3rd Party"
+tpy_wholly$SnP.LOB.Level.5[tpy_wholly$SnP.LOB.Level.5%in% "Parts"] = "3rd Party"
+
+#Renaming Sub LOB 5 from 3rd Party to DCS where Item Short Desc contains DCS
+c = grep('DCS',tpy_wholly$Item.Short.Desc)
+
+if( tpy_wholly[c,1]=="3rd Party"){
+  tpy_wholly[c,1]="DCS"
+}
+
+#Renaming account name (column 19) from template since two column with same name was present
+names(tpy_wholly)[18] <- "Account Name"
+
+# Removing dots from column names
+names(tpy_wholly) <- gsub("\\.", " ", names(tpy_wholly))
+
+#Writing the data frame in excel file
+write_xlsx(tpy_wholly, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/TPY_Wholly.xlsx")
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+#============================================================================================================================================================================
+#FILTERING TPY_TEMPLATE_BMS DATA & FILTERNG NON_WHOLLY MANUFACTURERS #
+#============================================================================================================================================================================
+
+colnames(tpy_all)
+#Renaming account name (column 19) from template since two column with same name was present
+names(tpy_all)[18] <- "Partner Name"
+
+
+tpy_all$Manufacturer.Name= stri_trans_general(tpy_all$Manufacturer.Name,id="Title")
+wholly_owned$Manufacturer.Name = stri_trans_general(wholly_owned$Manufacturer.Name, id ="Title")
+
+#Filtering Non-wholly manufacturers from the tpy_template_bms
+tpy_nonwholly = anti_join(tpy_all,wholly_owned , by ="Manufacturer.Name")
+
+#Changing Snp Lob Level 5 to 3rd Party for DCI n Parts
+unique(tpy_nonwholly$SnP.LOB.Level.5)
+
+#Renaming Sub LOB 5 from 3rd Party to DCS where Item Short Desc contains DCS
+c = grep('DCS',tpy_nonwholly$Item.Short.Desc)
+
+if(length(c) !=0) {
+  tpy_nonwholly[c,1]="DCS"
+}
+
+# Removing dots from column names
+names(tpy_nonwholly) <- gsub("\\.", " ", names(tpy_nonwholly))
+
+#Renaming account name (column 18) from template since two column with same name was present
+names(tpy_nonwholly)[18] <- "Account Name"
+
+
+write_xlsx(tpy_nonwholly, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/TPY_NWH.xlsx")
+#Writing the data frame in excel file
+#write_xlsx(tpy_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/TPY_Final.xlsx",
+# col_names = TRUE,sheetName = 'Order Level - Net Demand',row.names = FALSE)
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+#===================================================================================================================================================================================== 
+#MERGING NON_WHOLLY & WHOLLY DATA #
+#=====================================================================================================================================================================================
+
+tpy_final = rbind(tpy_wholly,tpy_nonwholly)
+#Writing the data frame in excel file
+write_xlsx(tpy_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/TPY_Actual.xlsx",
+           col_names = TRUE)
+
+rm(tpy_wholly,tpy_nonwholly,wholly_owned,tpy_all)
+#----------------------------------------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------------------------------------
+      #PREPARING DCI TEMPLATE BY FILTERING DCS DATA & MANUFACTURERS OTHER THAN DCI 
+#------------------------------------------------------------------------------------------------------------------------
+
+colnames(dci_data)
+
+#Renaming account name (column 19) from template since two column with same name was present
+names(dci_data)[19] <- "Partner Name"
+
+#Filtering 8 DCI Manufacturers from Column "Manufacturer Name"
+unique(dci_data$Manufacturer.Name)
+
+# dci_manf = c("Dell","Dell-APC","TrippLite","Emerson Network Power","Emerson",
+#              "American Power Conversion","Avocent Corporation","Eaton","Liebert Corp")
+
+dci_data = dci_data[dci_data$Manufacturer.Name %in% dci_manf,]
+
+#Filtering DCS from Item Description column
+dcs_data = filter(dci_data, grepl('DCS',dci_data$Item.Short.Desc))
+dci_data_final = setdiff(dci_data,dcs_data)
+
+#Removing dots from column names
+names(dci_data_final) <- gsub("\\.", " ", names(dci_data_final))
+#Renaming the column back to Account Name
+names(dci_data_final)[19] <- "Account Name"
+
+#Writing  dcs data  & Dci_unnormalized data frames back to excel
+write_xlsx(dcs_data, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/DCI_DCS_Template.xlsx")
+write_xlsx(dci_data_final,"//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/DCI_Actual.xlsx")
+rm(dcs_data,dci_data)
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+#==============================================================================================================================================================================================
+# PREPARING PARTS DATA - AMER,APJ & EMEA#
+#===============================================================================================================================================================================================
+colnames(parts_amer)
+names(parts_amer)[19] = "Partner Name"
+
+dcs_data_amer = filter(parts_amer, grepl('DCS',parts_amer$Item.Short.Desc))
+
+if(nrow(dcs_data_amer)!=0){
+  parts_amer_final = setdiff(parts_amer,dcs_data_amer)
+  write_xlsx(dcs_data_amer, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_AMER_DCS_Template.xlsx")
+}
+
+pure_play_amer = filter(parts_amer, grepl('PurePlay',parts_amer$Item.Short.Desc))
+
+if(nrow(pure_play_amer) !=0){
+  parts_amer_final = setdiff(parts_amer_final,pure_play_amer)
+  write_xlsx(pure_play, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_AMER_Pureplay_Template.xlsx")
+}
+
+#Renaming the column back to Account Name
+names(parts_amer_final)[19] <- "Account Name"
+
+#Removing dots from column names
+names(parts_amer_final) <- gsub("\\.", " ", names(parts_amer_final))
+
+write_xlsx(parts_amer_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_Template_AMER_Updated_1.1.xlsx")
+
+#Preparing parts_emea  file
+colnames(parts_emea)
+names(parts_emea)[19] = "Partner Name"
+
+dcs_data_Emea = filter(parts_emea, grepl('DCS',parts_emea$Item.Short.Desc))
+
+if(nrow(dcs_data_Emea)!=0){
+  
+  parts_EMEA_final = setdiff(parts_emea,dcs_data_Emea)
+  write_xlsx(dcs_data_Emea, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_EMEA_DCS.xlsx")
+}
+
+pure_play_emea = filter(parts_EMEA_final, grepl('PurePlay',parts_EMEA_final$Item.Short.Desc))
+
+if(nrow(pure_play_emea)!=0){
+  
+  parts_EMEA_final = setdiff(parts_EMEA_final,pure_play_emea)
+  write.xlsx2(pure_play_emea, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_EMEA_PurePlay.xlsx")
+}
+
+#Renaming the column back to Account Name
+names(parts_EMEA_final)[19] <- "Account Name"
+
+#Removing dots from column names
+names(parts_EMEA_final) <- gsub("\\.", " ", names(parts_EMEA_final))
+
+
+write_xlsx(parts_EMEA_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_Template_EMEA.xlsx")
+
+
+colnames(parts_apj)
+names(parts_apj)[19] = "Partner Name"
+
+dcs_data_APJ = filter(parts_apj, grepl('DCS',parts_apj$Item.Short.Desc))
+
+if(nrow(dcs_data_APJ)!=0){
+  parts_APJ_final = setdiff(parts_apj,dcs_data_APJ)
+  write_xlsx(dcs_data_APJ, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_APJ_DCS.xlsx")
+}
+
+pure_play_apj = filter(parts_apj, grepl('PurePlay',parts_apj$Item.Short.Desc))
+
+if(nrow(pure_play_apj)!=0){
+  parts_APJ_final = setdiff(parts_APJ_final,pure_play_apj)
+  write_xlsx(pure_play_apj, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_APJ_Pureplay.xlsx")
+}
+
+#Renaming the column back to Account Name
+names(parts_APJ_final)[19] <- "Account Name"
+
+#Removing dots from column names
+names(parts_APJ_final) <- gsub("\\.", " ", names(parts_APJ_final))
+
+write_xlsx(parts_APJ_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_APJ_Actual.xlsx")
+
+parts_dcs_pp = rbind(dcs_data_amer,pure_play_amer,dcs_data_APJ,pure_play_apj,dcs_data_Emea,pure_play_emea)
+
+write_xlsx(parts_dcs_pp, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_DCS&PP.xlsx")
+
+rm(dcs_data_APJ,dcs_data_Emea,dcs_data_amer,pure_play_apj,pure_play_amer,pure_play_emea,parts_amer,parts_apj,parts_emea,parts_dcs_pp)
+
+#==============================================================================================================================================================================================
+                                    #FILTERING  UNMAPPED DATA  For All LOBs FROM FINANCE FILE#
+#==============================================================================================================================================================================================
+
+#Filtering 'EI' from Column Product_Offering_code
+unique(unmap$Product_Offering_Code)
+unmap_EI = filter(unmap, grepl('EI',Product_Offering_Code))
+
+
+#Selecting only required columns from the unmapped file 
+unmap = select(unmap_EI,Fiscal_Quarter,Fiscal_Month,Fiscal_Week,Geography_Region,
+               Item_Num,Item_Desc, Mfg_Name,Units,Total.Revenue,Total.Margin,Classification)          
+
+#Renaming the columns as per BMS template
+names(unmap)[names(unmap) == "Fiscal_Quarter"] <- "Fiscal.Quarter"
+names(unmap)[names(unmap) == "Fiscal_Month"] <- "Fiscal.Month"
+names(unmap)[names(unmap) == "Fiscal_Week"] <- "Fiscal.Week"
+names(unmap)[names(unmap) == "Geography_Region"] <- "Region"
+names(unmap)[names(unmap) == "Item_Num"] <- "Item.Num"
+names(unmap)[names(unmap) == "Item_Desc"] <- "Item.Short.Desc"
+names(unmap)[names(unmap) == "Mfg_Name"] <- "Manufacturer.Name"
+names(unmap)[names(unmap) == "Total.Revenue"] <- "Revenue.ESG.EUC.SnP"
+names(unmap)[names(unmap) == "Total.Margin"] <- "Margin.ESG.EUC.SnP"
+names(unmap)[names(unmap) == "Units"] <- "Units.ESG.EUC.SnP"
+
+#Filtering DCI & Parts LOb from Classification column of Unmapped file and assigning it to SnP LOB Level 5 
+unique(unmap$Classification)
+unmap_dci = filter(unmap ,Classification == "DCI 3P")
+unmap_dci$Classification ="DCI"
+names(unmap_dci)[names(unmap_dci) == "Classification"] <- "SnP.LOB.Level.5"
+
+unmap_parts = filter(unmap,Classification == "Parts")
+names(unmap_parts)[names(unmap_parts) == "Classification"] <- "SnP.LOB.Level.5"
+
+tpy_unmap <- unmap[(unmap$Classification == 'T1' | unmap$Classification == 'T2' | is.na(unmap$Classification)),]
+names(tpy_unmap)[names(tpy_unmap) == "Classification"] <- "SnP.LOB.Level.5"
+
+#filtering Manufacturer - SonicWall from Mfg_Name
+unique(tpy_unmap$Manufacturer.Name)
+tpy_unmap = filter(tpy_unmap, !grepl('SonicWALL',Manufacturer.Name))
+
+
+#Reading the row names from respective BMS templates
+
+df_dci = data.frame(matrix(ncol = ncol(dci_data_final) , nrow = nrow(unmap_dci)))
+colnames(df_dci) = colnames(dci_data_final)
+
+
+df_parts = data.frame(matrix(ncol = ncol(parts_APJ_final) , nrow = nrow(unmap_parts)))
+colnames(df_parts) = colnames(parts_APJ_final)
+
+
+df_tpy = data.frame(matrix(ncol = ncol(tpy_final) , nrow = nrow(tpy_unmap)))
+colnames(df_tpy) = colnames(tpy_final)
+
+
+#Removing dots from column names
+names(unmap_dci) =  gsub("\\.", " ", names(unmap_dci))
+names(unmap_parts) = gsub("\\.", " ", names(unmap_parts))
+names(tpy_unmap) = gsub("\\."," ",names(tpy_unmap))
+
+#Merging two files
+dci_unmap_final = merge(df_dci,unmap_dci,all.y =TRUE)
+parts_unmap_final = merge(df_parts,unmap_parts,all.y =TRUE)
+tpy_unmap_final = merge(df_tpy,tpy_unmap,all.y =TRUE)
+
+#Replacing NAs with "-"
+dci_unmap_final[is.na(dci_unmap_final)] ="-"
+parts_unmap_final[is.na(parts_unmap_final)] ="-"
+tpy_unmap_final[is.na(tpy_unmap_final)] ="-"
+
+#Replacing NAs with 0 for numerical data
+dci_unmap_final$`Revenue Retail As Sold SnP` = 0
+dci_unmap_final$`Cost As Sold SnP` = 0
+
+parts_unmap_final$`Revenue Retail As Sold SnP` = 0
+parts_unmap_final$`Cost As Sold SnP` = 0
+
+tpy_unmap_final$`Revenue Retail As Sold SnP` = 0
+tpy_unmap_final$`Cost As Sold SnP` = 0
+tpy_unmap_final$`SnP LOB Level 5` = "3rd Party"
+tpy_unmap_final$`SnP LOB Level 4` = "Third Party"
+
+
+#reordering the column names to match template order
+
+dci_unmap_final = dci_unmap_final[colnames(dci_data_final)]
+parts_unmap_final = parts_unmap_final[colnames(parts_APJ_final)]
+tpy_unmap_final = tpy_unmap_final[colnames(tpy_final)]
+
+#Removing dots from column names
+names(dci_unmap_final) =  gsub("\\.", " ", names(dci_unmap_final))
+names(parts_unmap_final) = gsub("\\.", " ", names(parts_unmap_final))
+names(tpy_unmap_final) = gsub("\\."," ",names(tpy_unmap_final))
+
+#Renaming account name (column 18) from template since two column with same name was present
+names(tpy_unmap_final)[18] =  "Account Name"
+names(dci_unmap_final)[19] =  "Account Name"
+names(parts_unmap_final)[19] = "Account Name"
+
+#Writing the data frame in excel file
+write_xlsx(tpy_unmap_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/TPY_Unmapped.xlsx")
+write_xlsx(dci_unmap_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/DCI_Unmapped.xlsx")
+write_xlsx(parts_unmap_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_Unmapped.xlsx")
+
+#------------------------------------------------------------------------------------------------------------------------------
+
+
+
+#------------------------------------------------------------------------------------------------------------------------------
+                            #FILTERING  MISMAPPED DATA FROM FINANCE FILE#
+#------------------------------------------------------------------------------------------------------------------------------
+colnames(mismap)
+
+unique(mismap$Lob.Desc)
+lob = c("ENTERPRISE PERIPHERALS","ESG 3RD PARTY SOFTWARE",NA)
+mismap = mismap[!mismap$Lob.Desc %in% lob,]
+
+unique(mismap$Portfolio.Desc)
+mismap = filter(mismap, !grepl('CLIENT POWER',Portfolio.Desc))
+
+unique(mismap$SNP.MANUFACTURER.NAME)
+manuf = c("Citrix","SanDisk","Intel","TrippLite")
+mismap = mismap[!mismap$SNP.MANUFACTURER.NAME %in% manuf,]
+
+mismap$Transaction.Date.Quarter = paste0(substr(mismap$Transaction.Date.Quarter,1,4),"-",substr(mismap$Transaction.Date.Quarter,5,7))
+mismap$Transaction.Date.Week = paste0(substr(mismap$Transaction.Date.Week,1,4),"-W",substr(mismap$Transaction.Date.Week,5,6))
+
+mismap = select(mismap,Transaction.Date.Quarter,Transaction.Date.Week,Region.Desc,
+                Item.Num, Item.Desc, SNP.MANUFACTURER.NAME,Total.Revenue,Total.Margin,Classification)          
+
+names(mismap)[names(mismap) == "Transaction.Date.Quarter"] <- "Fiscal.Quarter"
+names(mismap)[names(mismap) == "Transaction.Date.Week"] <- "Fiscal.Week"
+names(mismap)[names(mismap) == "Region.Desc"] <- "Region"
+names(mismap)[names(mismap) == "Item.Num"] <- "Item.Num"
+names(mismap)[names(mismap) == "Item.Desc"] <- "Item.Short.Desc"
+names(mismap)[names(mismap) == "SNP.MANUFACTURER.NAME"] <- "Manufacturer.Name"
+names(mismap)[names(mismap) == "Total.Revenue"] <- "Revenue.ESG.EUC.SnP"
+names(mismap)[names(mismap) == "Total.Margin"] <- "Margin.ESG.EUC.SnP"
+
+
+unique(mismap$Classification)
+mismap_dci = filter(mismap ,Classification == "DCI 3P")
+
+mismap_tpy = filter(mismap,Classification != "DCI 3P")
+
+
+mismap_dci$Classification ="DCI"
+names(mismap_dci)[names(mismap_dci) == "Classification"] <- "SnP.LOB.Level.5"
+
+mismap_tpy$Classification ="3rd Party"
+
+names(mismap_tpy)[names(mismap_tpy) == "Classification"] <- "SnP.LOB.Level.5"
+
+
+df_dci = data.frame(matrix(ncol = ncol(dci_data_final) , nrow = nrow(mismap_dci)))
+
+colnames(df_dci) = colnames(dci_data_final)
+
+
+
+df_tpy = data.frame(matrix(ncol = ncol(tpy_final) , nrow = nrow(mismap_tpy)))
+
+colnames(df_tpy) = colnames(tpy_final)
+
+#Removing dots from column names
+names(mismap_dci) = gsub("\\.", " ", names(mismap_dci))
+names(mismap_tpy) =  gsub("\\.", " ", names(mismap_tpy))
+
+#Merging two files
+mismap_dci_final = merge(df_dci,mismap_dci,all.y = TRUE)
+mismap_tpy_final = merge(df_tpy,mismap_tpy,all.y = TRUE)
+
+#Replacing NAs with "-"
+mismap_dci_final[is.na(mismap_dci_final)] ="-"
+mismap_tpy_final[is.na(mismap_tpy_final)] ="-"
+
+#Replacing NAs with 0 for numerical data
+mismap_dci_final$`Revenue Retail As Sold SnP` = 0
+mismap_dci_final$`Cost As Sold SnP` = 0
+mismap_dci_final$`Units ESG EUC SnP` = 0
+
+mismap_tpy_final$`Revenue Retail As Sold SnP` = 0
+mismap_tpy_final$`Cost As Sold SnP`  = 0
+mismap_tpy_final$`Units ESG EUC SnP` = 0
+
+if(substr(mismap_dci_final$`Fiscal Quarter`,7,7)==0){
+  substr(mismap_dci_final$`Fiscal Quarter`,7,7) =substr(mismap_dci_final$`Fiscal Quarter`,8,8)
+  mismap_dci_final$`Fiscal Quarter` = substr(mismap_dci_final$`Fiscal Quarter`,1,7)
+}
+#   mismap_dci_final$Fiscal.Quarter = paste0(substr(mismap$Transaction.Date.Quarter,7,7),"-",substr(mismap$Transaction.Date.Quarter,5,7))
+if(substr(mismap_tpy_final$`Fiscal Quarter`,7,7)==0){
+  substr(mismap_tpy_final$`Fiscal Quarter`,7,7) =substr(mismap_tpy_final$`Fiscal Quarter`,8,8)
+  mismap_tpy_final$`Fiscal Quarter` = substr(mismap_tpy_final$`Fiscal Quarter`,1,7)
+}
+
+
+#reordering the column names to match template order
+mismap_dci_final = mismap_dci_final[colnames(dci_data_final)]
+mismap_tpy_final = mismap_tpy_final[colnames(tpy_final)]
+
+#Removing dots from column names
+names(mismap_dci_final) <- gsub("\\.", " ", names(mismap_dci_final))
+names(mismap_tpy_final) <- gsub("\\.", " ", names(mismap_tpy_final))
+
+#Renaming account name (column 18) from template since two column with same name was present
+names(mismap_dci_final)[19] =  "Account Name"
+names(mismap_tpy_final)[18] =  "Account Name"
+
+#Writing the data frame in excel file
+write_xlsx(mismap_tpy_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/TPY_Mismap.xlsx")
+write_xlsx(mismap_dci_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/DCI_Mismap.xlsx")
+
+#------------------------------------------------------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------------------------------------------------------
+          # MERGING UNMAP & MISMAP DATA WITH THE TPY(WHOLLY & NON-WHOLLY) & DCI DATA #
+#------------------------------------------------------------------------------------------------------------------------------
+
+tpy_data = rbind(tpy_final,tpy_unmap_final)
+tpy_data_final = rbind(tpy_data,mismap_tpy_final)
+
+dci_plus_mismap = rbind(dci_data_final,mismap_dci_final)
+dci_final = rbind(dci_plus_mismap,dci_unmap_final)
+
+parts_final = rbind(parts_APJ_final,parts_unmap_final)
+
+
+
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+#Writing the final tpy data frame in excel file
+write_xlsx(tpy_data_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/TPY_Template_bms.xlsx")
+           
+
+#Writing the final dci data frame in excel file
+write_xlsx(dci_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/DCI_Template_Updated.xlsx")
+           
+
+#Writing the final dci data frame in excel file
+write_xlsx(parts_final, "//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Team Members/Sneha/R_Script/Weekly_Report/Output_Files/Parts_Template_APJ.xlsx")
+           
+
+
+#--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# empty_df = data.frame(matrix(ncol = 24 , nrow = 7))
+# empty_df[is.na(empty_df)] =""
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# username = "CTRXECLERX\\ipsa.s.30158"
+# password = "eclerx#456"
+# 
+# connection = odbcDriverConnect(connection="Driver = SQL Server Native Client 10.0;
+#                                           server = localhost\\ECXDLSQLPRD06;
+#                                           database = Dell_Repository;
+#                                           UID = CTRXECLERX\\ipsa.s.30158;
+#                                           PWD = eclerx#456");
+#                                
+#                         
+                              
+
+
+# input = sqlQuery(connection,"select * from Dell_Repository")
+
+
+
+
+
