@@ -61,4 +61,446 @@ quantile(data_coss$qty_inv)
 quantile(data_coss$qty_inv,probs = c(0.2,0.4,0.6,0.8,1.0))
 #-----------------------------------------------------------------------------------------------------------------
 
+# /* Adding national brand avg to Own brand*/
+coss_data_grp_without_disctyp = sqlQuery(cn, "select * from [dbo].[Aggregated COSS_Accounts_Group_Without_DiscType]")
+coss_data_grp_without_disctyp$NationalAcct_Grp_Disc = ifelse(coss_data_grp_without_disctyp$name_brand_type =="National Brand", coss_data_grp_without_disctyp$Avg_Grp_Disc_Percent,0)
+
+key = paste0(coss_data_grp_without_disctyp$name_web_segmentation_level_2,'-',
+             coss_data_grp_without_disctyp$bucket)
+
+coss_data_grp_without_disctyp$key = key
+
+for(i in 1:nrow(coss_data_grp_without_disctyp)){
+  if(coss_data_grp_without_disctyp$name_brand_type[i] =="National Brand"){
+    nat_disc = coss_data_grp_without_disctyp$Avg_Grp_Disc_Percent[i]
+    key1 = coss_data_grp_without_disctyp$key[i]
+    # print (nat_disc)
+    # print(key1)
+    
+    for(j in 1:nrow(coss_data_grp_without_disctyp)){
+      if(coss_data_grp_without_disctyp$name_brand_type[j] == "Own Brand" & coss_data_grp_without_disctyp$key[j] == key1){
+        # print(coss_data_grp_without_disctyp$name_brand_type[j])
+        # print(coss_data_grp_without_disctyp$key[j])
+        coss_data_grp_without_disctyp$NationalAcct_Grp_Disc[j] = nat_disc
+        # print(coss_data_grp_without_disctyp$NationalAcct_Grp_Disc[j])
+        break
+      }
+      
+    }
+    
+  }
+  print(i)  
+}
+
+#---------------------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------------------
+#Wapp Calculation
+
+head(combined_data)
+#removed Na from Our Price column 
+combined_data_1 = combined_data
+# combined_data_1 =combined_data[!is.na(combined_data$`Our Price`),]
+
+max((combined_data_1$std_price - as.numeric(combined_data_1$`Our Price`))/combined_data_1$std_price)
+abs(min((combined_data_1$std_price - as.numeric(combined_data_1$`Our Price`))/combined_data_1$std_price))
+
+combined_data_1$per_delta = abs((combined_data_1$std_price - as.numeric(combined_data_1$`Our Price`))/combined_data_1$std_price)
+
+nrow(combined_data_1)
+nrow(combined_data_1[(combined_data_1$per_delta<0.2),])
+nrow(combined_data_1[(combined_data_1$per_delta<0.5),])
+nrow(combined_data_1[(combined_data_1$per_delta>=0.5 & combined_data_1$per_delta<0.75),])
+nrow(combined_data_1[(combined_data_1$per_delta>=0.75 & combined_data_1$per_delta<1.0),])
+nrow(combined_data_1[(combined_data_1$per_delta>=1.0),])
+
+# nrow(combined_data_2[((combined_data_2$std_price - as.numeric(combined_data_2$`Our Price`))/combined_data_2$std_price)>0.75,])
+# res= round(combined_data_1$`Arco Price`[1]/as.numeric(combined_data_1$`Our Price`[1]),2)
+#Calculating Price Position for each Competitor
+combined_data_1$PriceIndex_Arco = round(combined_data_1$`Arco Price`/as.numeric(combined_data_1$`Our Price`),2)
+combined_data_1$PriceIndex_Brammer= round(as.numeric(combined_data_1$`Brammer Prices`)/as.numeric(combined_data_1$`Our Price`),2)
+combined_data_1$PriceIndex_BuckHickman = round(combined_data_1$`Buck & Hickman Price`/as.numeric(combined_data_1$`Our Price`),2)
+combined_data_1$PriceIndex_Hoffman = round(as.numeric(combined_data_1$`Hoffman Prices`)/as.numeric(combined_data_1$`Our Price`),2)
+combined_data_1$PriceIndex_MSC = round(as.numeric(combined_data_1$`MSC Prices`)/as.numeric(combined_data_1$`Our Price`),2)
+combined_data_1$PriceIndex_RSComp = round(as.numeric(combined_data_1$`RS Component Price`)/as.numeric(combined_data_1$`Our Price`),2)
+combined_data_1$PriceIndex_Screwfix = round(as.numeric(combined_data_1$`Screwfix Prices`)/as.numeric(combined_data_1$`Our Price`),2)
+combined_data_1$PriceIndex_WorldOfSupply = round(as.numeric(combined_data_1$`WorldofSupply Prices`)/as.numeric(combined_data_1$`Our Price`),2)
+# Calculatilng overlap# Calculating price position of competitor
+ 
+sum(!is.na(combined_data$WorldOfSupply_Cromwell ))
+length(combined_data_1$PriceIndex_WorldOfSupply )
+length(combined_data_1$PriceIndex_Arco )
+
+# overlap_with_Arco = sum(!is.na(combined_data_1$PriceIndex_Arco ))/length(combined_data_1$PriceIndex_Arco )*100
+# overlap_with_Brammer = sum(!is.na(combined_data_1$PriceIndex_Brammer ))/length(combined_data_1$PriceIndex_Brammer )*100
+# overlap_with_BuckHickman = sum(!is.na(combined_data_1$PriceIndex_BuckHickman))/length(combined_data_1$PriceIndex_BuckHickman )*100
+# overlap_with_Hoffman = sum(!is.na(combined_data_1$PriceIndex_Hoffman))/length(combined_data_1$PriceIndex_Hoffman)*100
+# overlap_with_MSC = sum(!is.na(combined_data_1$PriceIndex_MSC))/length(combined_data_1$PriceIndex_MSC)*100
+# overlap_with_RSComp = sum(!is.na(combined_data_1$PriceIndex_RSComp))/length(combined_data_1$PriceIndex_RSComp)*100
+# overlap_with_Screwfix = sum(!is.na(combined_data_1$PriceIndex_Screwfix))/length(combined_data_1$PriceIndex_Screwfix)*100
+# overlap_with_WorldOfsupply = sum(!is.na(combined_data_1$PriceIndex_WorldOfSupply  ))/length(combined_data_1$PriceIndex_WorldOfSupply )*100
+
+
+# Calculating weight
+# combined_data$weight = combined_data$total_price/sum(combined_data$total_price)
+
+# Calculating Weighted Avg price position for each competitor
+combined_data_1$WeightedIndex_Arco = combined_data_1$total_price * combined_data_1$PriceIndex_Arco
+
+combined_data_1$WeightedIndex_Brammer = combined_data_1$total_price * combined_data_1$PriceIndex_Brammer
+
+combined_data_1$WeightedIndex_BuckHickman = combined_data_1$total_price * combined_data_1$PriceIndex_BuckHickman
+
+combined_data_1$WeightedIndex_Hoffman = combined_data_1$total_price * combined_data_1$PriceIndex_Hoffman
+
+combined_data_1$WeightedIndex_MSC = combined_data_1$total_price * combined_data_1$PriceIndex_MSC 
+
+combined_data_1$WeightedIndex_RSComp = combined_data_1$total_price * combined_data_1$PriceIndex_RSComp
+
+combined_data_1$WeightedIndex_Screwfix = combined_data_1$total_price * combined_data_1$PriceIndex_Screwfix
+
+combined_data_1$WeightedIndex_WorldOfSupply = combined_data_1$total_price * combined_data_1$PriceIndex_WorldOfSupply 
+
+
+
+
+
+
+# selecting month wise dataset
+#----------------------------------------------April-----------------------------------------------
+data_april  = filter(combined_data_1,grepl('April',combined_data_1$Month_18_Name))
+price_position_april = select(data_april,36:43)
+price_position_april[is.na(price_position_april)] =0
+price_position_april$new = 1.00
+price_position_april = as.data.frame(t(apply(price_position_april, 1, sort)))
+price_position_april$position <- apply(price_position_april,1,function(x) match(1,x, nomatch=99 ))
+
+price_position_april$PI_Below = NA
+price_position_april$PI_Above = NA
+
+  for(i in 1:nrow(price_position_april)){
+  price_position_april$PI_Below[i] = price_position_april[i,price_position_april$position[i]-1]
+  # price_position_april$PI_Above = NA
+  }
+# mydata$x4 = ifelse(mydata$x2>150,1,0)
+
+# PI_Above
+for(i in 1:nrow(price_position_april)){
+price_position_april$PI_Above[i] = ifelse(price_position_april$position[i] <9,
+                                       price_position_april[i,price_position_april$position[i]+1],0)
+}
+
+for(i in 1:nrow(price_position_april)){
+if(price_position_april$PI_Below[i] == 1 | price_position_april$PI_Above[i] == 1){
+  price_position_april$PI_Above[i] = 1
+  price_position_april$PI_Below[i] = 1
+}
+}
+
+price_position_april[price_position_april == 0] <- NA
+april_PI = price_position_april[,11:12]
+april= cbind(data_april,april_PI)
+
+april_df = read.csv("E:/Cromwell/Sneha/Final_data_PI/April_new.csv")
+april_df$WI_Below = round((april_df$PI_Below*april_df$total_price),2)
+april_df$WI_Above = round((april_df$PI_Above*april_df$total_price),2)
+
+
+write.csv(april_df,"April_final.csv",row.names = FALSE)
+#-------------------------------------------------------------------------------------------------
+data_may  = filter(combined_data_1,grepl('May',combined_data_1$Month_18_Name))
+price_position_may = select(data_may,35:42)
+price_position_may[is.na(price_position_may)] =0
+price_position_may$new = 1.00
+price_position_may = as.data.frame(t(apply(price_position_may, 1, sort)))
+price_position_may$position <- apply(price_position_may,1,function(x) match(1,x, nomatch=99 ))
+
+price_position_may$PI_Below = NA
+price_position_may$PI_Above = NA
+
+
+for(i in 1:nrow(price_position_may)){
+  price_position_may$PI_Below[i] = price_position_may[i,price_position_may$position[i]-1]
+  price_position_may$PI_Above[i] = ifelse(price_position_may$position[i] <9,
+                                            price_position_may[i,price_position_may$position[i]+1],0)
+  if(price_position_may$PI_Below[i] == 1 | price_position_may$PI_Above[i] == 1){
+    price_position_may$PI_Above[i] = 1
+    price_position_may$PI_Below[i] = 1
+  }
+}
+price_position_may[price_position_may == 0] <- NA
+may_PI = price_position_may[,11:12]
+may= cbind(data_may,may_PI)
+#-------------------------------------------------------------------------------------------------
+
+
+data_june  = filter(combined_data_1,grepl('June',combined_data_1$Month_18_Name))
+price_position_june = select(data_june,35:42)
+price_position_june[is.na(price_position_june)] =0
+price_position_june$new = 1.00
+price_position_june = as.data.frame(t(apply(price_position_june, 1, sort)))
+price_position_june$position <- apply(price_position_june,1,function(x) match(1,x, nomatch=99 ))
+
+price_position_june$PI_Below = NA
+price_position_june$PI_Above = NA
+
+
+for(i in 1:nrow(price_position_june)){
+  price_position_june$PI_Below[i] = price_position_june[i,price_position_june$position[i]-1]
+  price_position_june$PI_Above[i] = ifelse(price_position_june$position[i] <9,
+                                          price_position_june[i,price_position_june$position[i]+1],0)
+  if(price_position_june$PI_Below[i] == 1 | price_position_june$PI_Above[i] == 1){
+    price_position_june$PI_Above[i] = 1
+    price_position_june$PI_Below[i] = 1
+  }
+}
+
+price_position_june[price_position_june == 0] <- NA
+june_PI = price_position_june[,11:12]
+june= cbind(data_june,june_PI)
+
+june$PI_Above = as.numeric(june$PI_Above)
+june$PI_Below = as.numeric(june$PI_Below)
+#-----------------------------------------------------------------------------------------------------
+
+
+data_july  = filter(combined_data_1,grepl('July',combined_data_1$Month_18_Name))
+price_position_july = select(data_july,35:42)
+price_position_july[is.na(price_position_july)] =0
+price_position_july$new = 1.00
+price_position_july = as.data.frame(t(apply(price_position_july, 1, sort)))
+price_position_july$position <- apply(price_position_july,1,function(x) match(1,x, nomatch=99 ))
+
+price_position_july$PI_Below = NA
+price_position_july$PI_Above = NA
+
+
+for(i in 1:nrow(price_position_july)){
+  price_position_july$PI_Below[i] = price_position_july[i,price_position_july$position[i]-1]
+  price_position_july$PI_Above[i] = ifelse(price_position_july$position[i] <9,
+                                           price_position_july[i,price_position_july$position[i]+1],0)
+  if(price_position_july$PI_Below[i] == 1 | price_position_july$PI_Above[i] == 1){
+    price_position_july$PI_Above[i] = 1
+    price_position_july$PI_Below[i] = 1
+  }
+}
+price_position_july[price_position_july == 0] <- NA
+july_PI = price_position_july[,11:12]
+july= cbind(data_july,july_PI)
+#-----------------------------------------------------------------------------------------------------
+
+
+
+
+
+data_aug  = filter(combined_data_1,grepl('August',combined_data_1$Month_18_Name))
+price_position_aug = select(data_aug,38:45)
+price_position_aug[is.na(price_position_aug)] =0
+price_position_aug$new = 1.00
+price_position_aug = as.data.frame(t(apply(price_position_aug, 1, sort)))
+price_position_aug$position <- apply(price_position_aug,1,function(x) match(1,x, nomatch=99 ))
+
+price_position_aug$PI_Below = NA
+price_position_aug$PI_Above = NA
+
+
+for(i in 1:nrow(price_position_aug)){
+  price_position_aug$PI_Below[i] = price_position_aug[i,price_position_aug$position[i]-1]
+  price_position_aug$PI_Above[i] = ifelse(price_position_aug$position[i] <9,
+                                           price_position_aug[i,price_position_aug$position[i]+1],0)
+  if(price_position_aug$PI_Below[i] == 1 | price_position_aug$PI_Above[i] == 1){
+    price_position_aug$PI_Above[i] = 1
+    price_position_aug$PI_Below[i] = 1
+  }
+}
+
+price_position_aug[price_position_aug == 0] <- NA
+aug_PI = price_position_aug[,11:12]
+aug= cbind(data_aug,aug_PI)
+#-----------------------------------------------------------------------------------------------------
+
+
+
+
+data_feb  = filter(combined_data_1,grepl('February',combined_data_1$Month_18_Name))
+price_position_feb = select(data_feb,35:42)
+price_position_feb[is.na(price_position_feb)] =0
+price_position_feb$new = 1.00
+price_position_feb = as.data.frame(t(apply(price_position_feb, 1, sort)))
+price_position_feb$position <- apply(price_position_feb,1,function(x) match(1,x, nomatch=99 ))
+
+price_position_feb$PI_Below = NA
+price_position_feb$PI_Above = NA
+
+
+for(i in 1:nrow(price_position_feb)){
+  price_position_feb$PI_Below[i] = price_position_feb[i,price_position_feb$position[i]-1]
+  price_position_feb$PI_Above[i] = ifelse(price_position_feb$position[i] <9,
+                                           price_position_feb[i,price_position_feb$position[i]+1],0)
+  if(price_position_feb$PI_Below[i] == 1 | price_position_feb$PI_Above[i] == 1){
+    price_position_feb$PI_Above[i] = 1
+    price_position_feb$PI_Below[i] = 1
+  }
+}
+
+colnames(price_position_feb) = colnames(price_position_april)
+
+price_position_feb[price_position_feb == 0] <- NA
+feb_PI = price_position_feb[,11:12]
+feb= cbind(data_feb,feb_PI)
+#-----------------------------------------------------------------------------------------------------
+
+
+
+
+
+data_mar  = filter(combined_data_1,grepl('March',combined_data_1$Month_18_Name))
+price_position_mar = select(data_mar,35:42)
+price_position_mar[is.na(price_position_mar)] =0
+price_position_mar$new = 1.00
+price_position_mar = as.data.frame(t(apply(price_position_mar, 1, sort)))
+price_position_mar$position <- apply(price_position_mar,1,function(x) match(1,x, nomatch=99 ))
+
+price_position_mar$PI_Below = NA
+price_position_mar$PI_Above = NA
+
+
+for(i in 1:nrow(price_position_mar)){
+  price_position_mar$PI_Below[i] = price_position_mar[i,price_position_mar$position[i]-1]
+  price_position_mar$PI_Above[i] = ifelse(price_position_mar$position[i] <9,
+                                          price_position_mar[i,price_position_mar$position[i]+1],0)
+  if(price_position_mar$PI_Below[i] == 1 | price_position_mar$PI_Above[i] == 1){
+    price_position_mar$PI_Above[i] = 1
+    price_position_mar$PI_Below[i] = 1
+  }
+}
+
+price_position_mar[price_position_mar == 0] <- NA
+mar_PI = price_position_mar[,11:12]
+march= cbind(data_mar,mar_PI)
+#-----------------------------------------------------------------------------------------------------
+
+
+ write.csv(data_feb,"Data_for_Feb.csv",row.names = FALSE)
+#Binding all month wise data to one
+
+price_position_all = rbind(price_position_april,price_position_may,price_position_june,
+                           price_position_july,price_position_aug,
+                           price_position_mar,price_position_feb)
+
+#No overlap found in Feb Data
+
+price_position_all[price_position_all == 0] <- NA
+
+overlap_PI_Below = sum(!is.na(price_position_all$PI_Below ))/length(price_position_all$PI_Below )*100
+overlap_PI_Above = sum(!is.na(price_position_all$PI_Above ))/length(price_position_all$PI_Above )*100
+
+
+overall_data = rbind(april,aug,march,may,feb,june,july)
+
+
+write.csv(april,"April.csv",row.names = FALSE)
+write.csv(aug,"Aug.csv",row.names = FALSE)
+write.csv(march,"March.csv",row.names = FALSE)
+write.csv(may,"May.csv",row.names = FALSE)
+write.csv(feb,"Feb.csv",row.names = FALSE)
+write.csv(july,"July.csv",row.names = FALSE)
+write.csv(june,"June.csv",row.names = FALSE)
+df <- apply(df,2,as.character)
+write.csv(overall_data,"Overall_data.csv",row.names = FALSE)
+
+write.xlsx(overall_data,"Overall_data_v1.xlsx",row.names = FALSE)
+
+overall_data$WI_Below = is.numeric(overall_data$total_price) * is.numeric(overall_data$PI_Below)
+overall_data$WI_Above = is.numeric(overall_data$total_price) * is.numeric(overall_data$PI_Above)
+
+
+
+
+
+
+write.csv(data_april , "Cromwell_vs_Competitor_April.csv")
+
+
+price_position = select(combined_data_1,35:42)
+
+# write.csv(price_position,"Price_position.csv",row.names = FALSE)
+# write.csv(combined_data_1,"CompetitorData.csv",row.names = FALSE)
+
+price_position[is.na(price_position)] =0
+
+# price_position[price_position==1.00]=1000
+price_position$new = 1.00
+
+data_price = as.data.frame(t(apply(price_position, 1, sort)))
+
+# write.csv(data_price,"Data_price.csv",row.names = FALSE)
+
+
+# sorted_data = as.data.frame(t(sapply(split(t(price_position), col(t(price_position))), sort)))
+
+data_price$position <- apply(data_price,1,function(x) match(1,x, nomatch=99 ))
+
+for(i in 1:nrow(data_price)){
+  
+if(data_price$position[i-1] == NA ){
+  data_price$Price_Below[i]
+} 
+
+data_price$Price_Below[i] = data_price[i,data_price$position[i-1]]
+# data_price$Price_above[i] = data_price[i,data_price$position[i+2]]
+}
+
+as.data.frame(x)
+
+
+combined_data_1[is.na(combined_data_1)] =0
+
+
+
+combined_data_1$Max_new <- pmax(combined_data_1[,c("PriceIndex_Arco","PriceIndex_Brammer","PriceIndex_BuckHickman",
+                                               "PriceIndex_Hoffman","PriceIndex_MSC","PriceIndex_RSComp",
+                                               "PriceIndex_Screwfix","PriceIndex_WorldOfSupply")], 1)
+
+combined_data_1$Min <- pmin(combined_data_1[,"PriceIndex_Arco"], 1)
+
+as.numeric(combined_data_1$all_price_index)
+# combined_data_1 = select(combined_data, -18,-20,-22,-24,-26,-28,-30,-32)
+
+# write.csv(combined_data , "Cromwell_vs_Competitor_s1.csv")
+
+# combined_data_2 = filter(combined_data_1,!grepl('NA',combined_data_1$`Our Price`))
+
+
+combined_data_3 = combined_data_1 %>% 
+                  group_by(name_brand_type,name_web_segmentation_level_2,Month_18_Name) %>% 
+                  summarise(Agg_weightedIndex_Arco =sum(WeightedIndex_Arco,na.rm = TRUE),
+                            Agg_weightedIndex_Brammer =sum(WeightedIndex_Brammer,na.rm = TRUE),
+                            Agg_weightedIndex_BuckHickman =sum(WeightedIndex_BuckHickman,na.rm = TRUE),
+                            Agg_weightedIndex_Hoffman =sum(WeightedIndex_Hoffman,na.rm = TRUE),
+                            Agg_weightedIndex_MSC=sum(WeightedIndex_MSC,na.rm = TRUE),
+                            Agg_weightedIndex_RSComp =sum(WeightedIndex_RSComp,na.rm = TRUE),
+                            Agg_weightedIndex_Screwfix =sum(WeightedIndex_Screwfix,na.rm = TRUE),
+                            Agg_weightedIndex_WorldofSupply =sum(WeightedIndex_WorldOfSupply,na.rm = TRUE),
+                            Agg_total_price = sum(total_price))
+
+
+combined_data_3$SubCategoryWAPP_Arco = combined_data_3$Agg_weightedIndex_Arco/combined_data_3$Agg_total_price
+combined_data_3$SubCategoryWAPP_Brammer = combined_data_3$Agg_weightedIndex_Brammer/combined_data_3$Agg_total_price
+combined_data_3$SubCategoryWAPP_BuckHickman = combined_data_3$Agg_weightedIndex_BuckHickman/combined_data_3$Agg_total_price
+combined_data_3$SubCategoryWAPP_Hoffman = combined_data_3$Agg_weightedIndex_Hoffman/combined_data_3$Agg_total_price
+combined_data_3$SubCategoryWAPP_MSC = combined_data_3$Agg_weightedIndex_MSC/combined_data_3$Agg_total_price
+combined_data_3$SubCategoryWAPP_RSComp = combined_data_3$Agg_weightedIndex_RSComp/combined_data_3$Agg_total_price
+combined_data_3$SubCategoryWAPP_Screwfix = combined_data_3$Agg_weightedIndex_Screwfix/combined_data_3$Agg_total_price
+combined_data_3$SubCategoryWAPP_WorldofSupply = combined_data_3$Agg_weightedIndex_WorldofSupply/combined_data_3$Agg_total_price
+
+
+
+combined_data_final = left_join(combined_data_1,combined_data_3,
+                          by =c("name_brand_type"="name_brand_type",
+                                "name_web_segmentation_level_2"="name_web_segmentation_level_2",
+                                "Month_18_Name"="Month_18_Name")) 
+
+            
+
+
 
