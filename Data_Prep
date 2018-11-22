@@ -37,5 +37,22 @@ for(i in 1:length(files)){
   print(i)
   
 }
+#---------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------
+#Connecting R with SQL Server
 
+library(RODBC)
+library(binr)
+library(writexl)
+library(dplyr)
+# library(percentile)
+
+cn <- odbcDriverConnect(connection="Driver={SQL Server Native Client 11.0};
+                        server=localhost;
+                        database=CromwellDiscountOptimisation;
+                        trusted_connection=yes;")
+
+total_cnt <- sqlQuery(cn, 'select count(*) from Cromwell_Mastertable')
+#----------------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------------------------
 
