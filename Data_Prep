@@ -55,4 +55,10 @@ cn <- odbcDriverConnect(connection="Driver={SQL Server Native Client 11.0};
 total_cnt <- sqlQuery(cn, 'select count(*) from Cromwell_Mastertable')
 #----------------------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------------------------------------------
+#Finding quantiles/percentiles
+
+quantile(data_coss$qty_inv)
+quantile(data_coss$qty_inv,probs = c(0.2,0.4,0.6,0.8,1.0))
+#-----------------------------------------------------------------------------------------------------------------
+
 
