@@ -1,0 +1,41 @@
+# Reading all the csv files replacing "," with "-" 
+
+setwd("E:/Cromwell/Data")
+
+files = list.files(pattern = "*.csv")
+files[order(files)]
+
+
+for(i in 1:length(files)){
+  input = read.csv2(files[i],header = TRUE,sep = ",")
+  input$name_web_segmentation_level_1 = gsub("\\,","-",input$name_web_segmentation_level_1)
+  input$name_web_segmentation_level_2 = gsub("\\,","-",input$name_web_segmentation_level_2)
+  input$name_web_segmentation_level_3 = gsub("\\,","-",input$name_web_segmentation_level_3)
+  input$name_web_segmentation_level_4 = gsub("\\,","-",input$name_web_segmentation_level_4)
+  input$name_web_segmentation_level_5 = gsub("\\,","-",input$name_web_segmentation_level_5)
+  input$customer_group = gsub("\\,","-",input$customer_group)
+  input$cust_name = gsub("\\,","-",input$cust_name)
+  input$customer_group_curr = gsub("\\,","-",input$customer_group_curr)
+  input$description = gsub("\\,","-",input$description)
+  input$name_product_subcategory = gsub("\\,","-",input$name_product_subcategory)
+  input$name_family_heading = gsub("\\,","-",input$name_family_heading)
+  
+  
+  input$id = as.character(input$id)
+  temp=input$id[!grepl("^[A-Z]|[a-z]",input$id)]
+  temp = as.data.frame(temp)
+  
+  input = input[input$id %in% temp$temp,] 
+  
+  a = gsub('.*_([0-9]+).*','\\1',files)
+ 
+  input['table_flag']=a[i]
+  
+  input[is.na(input)]= ""
+ 
+  write.csv(input,paste0("E:/Cromwell/Data/Final_1/",files[i]),quote = FALSE,row.names = FALSE)
+  print(i)
+  
+}
+
+
