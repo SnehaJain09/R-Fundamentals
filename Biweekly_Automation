@@ -1,0 +1,357 @@
+#Script to created a consolidated base data for tracking of APJ selected accounts performance Bi-Weekly
+#Created On: 18-04-2018
+#Created By: Enterprise Infrasturcture Support Team
+
+rm(list = ls())
+# install.packages("lubridate")
+install.packages("stringi")
+
+
+library(readxl)
+library(plyr)
+library(reshape2)
+options(scipen=999)
+library("lubridate")
+library(dplyr)
+library(stringi)
+
+# Setting workig directory
+
+setwd("//172.25.2.20/s&p_pricing$/Enterprise_pricing/Business_Reporting/Ad hoc request/Target_Account_Analysis_Bi_Weekly_Refresh/AMER & LATAM/Week 16")
+
+# Reading Data
+
+DCI_Data<-as.data.frame(read_excel("DCI_Data_Weekly_1.xlsx",skip=7,col_names=TRUE))
+TPY_Data<-as.data.frame(read_excel("TPY_Data_Updated_Weekly.xlsx",sheet="Sheet1",skip=8,col_names=TRUE))
+Parts_Data<-as.data.frame(read_excel("Parts_Data_Weekly.xlsx",sheet="DCI RTM by Q",skip=8,col_names=TRUE))
+
+Server_Data<-as.data.frame(read_excel("Copy of Global SnP Participation_Server.xlsx",
+                                          sheet="Order Level - Net Demand",skip=5,col_names=TRUE))
+
+Target_Accounts<-as.data.frame(read_excel("Account List.xlsx",
+                                          sheet="Sheet1",col_names=TRUE))
+
+#Removing Columns "Cost As Sold" & "SnP LOB Level 5" from all lob's template 
+
+drops = c("SnP LOB Level 5","Cost As Sold")
+
+DCI_Data = DCI_Data[,!(names(DCI_Data)%in% drops)]
+TPY_Data = TPY_Data[,!(names(TPY_Data)%in% drops)]
+Parts_Data = Parts_Data[,!(names(Parts_Data)%in% drops)]
+
+
+#Adding Parts_Category,Manufacturer Name & Offering Product in Server_Data
+
+espot <- which(names(Server_Data)=="Account Name__1")
+Server_Data<-data.frame(Server_Data[1:espot],`SnP LOB Parts Category`="-",Server_Data[(espot+1):ncol(Server_Data)])
+# colnames(Server_Data)[which(names(Server_Data) == "SnP.LOB.Parts.Category")] <- "SnP LOB Parts Category"
+
+gspot = which(names(Server_Data)=="SnP.LOB.Parts.Category")
+Server_Data<-data.frame(Server_Data[1:gspot],`Offering Product`="-",Server_Data[(gspot+1):ncol(Server_Data)])
+# colnames(Server_Data)[which(names(Server_Data) == "Offering.Product")] <- "Offering Product"
+
+hspot = which(names(Server_Data)=="Account.ID")
+Server_Data<-data.frame(Server_Data[1:hspot],`Manufacturer Name`="-",Server_Data[(hspot+1):ncol(Server_Data)])
+# colnames(Server_Data)[which(names(Server_Data) =="Manufacturer.Name" )] <- "Manufacturer Name"
+
+
+
+#Renaming Column names
+DCI_Data<-plyr::rename(DCI_Data,replace = c("Account ID__1"="Affinity ID",
+                                      "Account Name__1"="Partner Name",
+                                      "Account SR - First Manager Name"="Account Manager","Owner Name"="Sales Rep"))
+
+
+TPY_Data<-plyr::rename(TPY_Data,replace = c("Account ID__1"="Affinity ID",
+                                      "Account Name__1"="Partner Name",
+                                      "Account SR - First Manager Name"="Account Manager","Owner Name"="Sales Rep"))
+
+
+Parts_Data<-plyr::rename(Parts_Data,replace = c("Account ID__1"="Affinity ID",
+                                          "Account Name__1"="Partner Name",
+                                          "Account SR - First Manager Name"="Account Manager","Owner Name"="Sales Rep"))
+
+
+Server_Data<-plyr::rename(Server_Data,c("Account.ID__1"="Affinity ID",
+                                  "Account.Name__1"="Partner Name",
+                                  "Account.SR...First.Manager.Name"="Account Manager","Owner.Name"="Sales Rep",
+                                  "Revenue.System.Enterprise"="Revenue ESG EUC SnP","Margin.System.Enterprise"="Margin ESG EUC SnP",
+                                  "Units.System.Enterprise" = "Units ESG EUC SnP","Fiscal.Week.Number..Quarter."="Fiscal Week Number (Quarter)"))
+
+
+#Removing DCI Manufacturers from TPY and adding them back to DCI
+
+dci_manuf = c('American Power Conversion',
+              'American Power Con','Avocent Corporation',
+              'TrippLite','Avocent','Eaton',
+              'Emerson Network Power','Emerson','Liebert Corp','Dell-APC')
+
+
+DCI_Data<-rbind(TPY_Data[TPY_Data$`Manufacturer Name` %in% dci_manuf,],DCI_Data)
+
+#Removing Dell Maunfacturer Data from 3PP and adding to DCI and Parts 
+
+Parts_Data<-rbind(TPY_Data[which(TPY_Data$`Manufacturer Name`=="Dell" & TPY_Data$`Offering Product`=="ENTERPRISE STORAGE"),],Parts_Data)
+Parts_Data<-rbind(TPY_Data[which(TPY_Data$`Manufacturer Name`=="Dell" & TPY_Data$`Offering Product`=="ENTERPRISE NETWORKING"),],Parts_Data)
+DCI_Data<-rbind(TPY_Data[which(TPY_Data$`Manufacturer Name`=="Dell" & TPY_Data$`Offering Product`=="ENTERPRISE POWER & COOLING"),],DCI_Data)
+DCI_Data<-rbind(TPY_Data[which(TPY_Data$`Manufacturer Name`=="Dell" & TPY_Data$`Offering Product`=="ENTERPRISE ACCESSORIES - MISC"),],DCI_Data)
+
+TPY_Data<-TPY_Data[!TPY_Data$`Manufacturer Name` %in% c(dci_manuf,'Dell'),]
+
+#Removing dots from column names
+names(Server_Data) <- gsub("\\.", " ", names(Server_Data))
+
+
+#Check if all the data frames have same column names
+table(names(DCI_Data)==names(TPY_Data))
+table(names(DCI_Data)==names(Parts_Data))
+table(names(DCI_Data)==names(Server_Data))
+
+#Realigning the RTM
+DCI_Data$RTM<-ifelse(DCI_Data$`Partner Type`%in% c('Direct','Consumer'),"Direct End User",
+                     ifelse(DCI_Data$`Partner Type`%in% c('Distribution'),'Distribution Channel','Partner/Reseller'))
+
+TPY_Data$RTM<-ifelse(TPY_Data$`Partner Type`%in% c('Direct','Consumer'),"Direct End User",
+                     ifelse(TPY_Data$`Partner Type`%in% c('Distribution'),'Distribution Channel','Partner/Reseller'))
+
+Parts_Data$RTM<-ifelse(Parts_Data$`Partner Type`%in% c('Direct','Consumer'),"Direct End User",
+                       ifelse(Parts_Data$`Partner Type`%in% c('Distribution'),'Distribution Channel','Partner/Reseller'))
+
+Server_Data$RTM<-ifelse(Server_Data$`Partner Type`%in% c('Direct','Consumer'),"Direct End User",
+                                  ifelse(Server_Data$`Partner Type`%in% c('Distribution'),'Distribution Channel','Partner/Reseller'))
+
+
+#Preping the full server data
+DCI_Base_data_full<-DCI_Data
+DCI_Base_data_full$LOB<-"DCI"
+
+TPY_Base_Data_full<-TPY_Data
+TPY_Base_Data_full$LOB<-"TPY"
+
+Parts_Base_Data_full<-Parts_Data
+Parts_Base_Data_full$LOB<-"Parts"
+
+
+Server_Base_Data_full<-Server_Data
+Server_Base_Data_full$LOB<-"Server"
+
+
+table(names(DCI_Base_data_full))==table(names(TPY_Base_Data_full))
+table(names(DCI_Base_data_full))==table(names(Parts_Base_Data_full))
+table(names(DCI_Base_data_full))==table(names(Server_Base_Data_full))
+
+Base_Data_Full<-rbind(DCI_Base_data_full,TPY_Base_Data_full,Parts_Base_Data_full,Server_Base_Data_full)
+
+Base_Data_Full = filter(Base_Data_Full, !grepl('Canada',Country)) # Removing Canada 
+
+Base_Data_Full$`Sub Region`[Base_Data_Full$`Sub Region`=="Latin America"] ="LATAM"
+Base_Data_Full$`Sub Region`[Base_Data_Full$`Sub Region`=="United States and Canada"] ="NA"
+
+Base_Data_Full$`Partner Name`<- stri_trans_general(Base_Data_Full$`Partner Name`,id="Title")
+
+key<-paste(Base_Data_Full$`Sub Region`,Base_Data_Full$`Affinity ID`,Base_Data_Full$`Partner Name`,sep="")
+Base_Data_Full<-data.frame(Key=key,Base_Data_Full)
+
+Target_Accounts$`Account Name` = stri_trans_general(Target_Accounts$`Account Name`,id ="Title")
+key<-paste(Target_Accounts$`Sub Region`,Target_Accounts$`Acct ID`,Target_Accounts$`Account Name`,sep="") 
+           
+Target_Accounts<-data.frame(Key=key,Target_Accounts)
+Target_Accounts$Flag<-"1"
+
+Base_Data_Full<-merge(Base_Data_Full,Target_Accounts[,c("Key","Flag")],by="Key",all.x = TRUE)
+Base_Data_Full[which(is.na(Base_Data_Full$Flag)),c("Flag")]<-0
+
+#Removing dots from column names
+names(Base_Data_Full) <- gsub("\\.", " ", names(Base_Data_Full))
+
+write.csv(Base_Data_Full,file="Base_Data_Full.csv")
+rm(DCI_Base_data_full,TPY_Base_Data_full,Parts_Base_Data_full,Server_Base_Data_full)
+#==========================================================================================================================================================
+                        #####Retaining Lastest 4 weeks of data#####
+
+
+dell_year = format(seq.Date(Sys.Date(),length=2,by ='12 months')[2],"%Y-%U")
+sys_week = as.numeric(substr(dell_year,6,7))
+dell_week_1 = as.character(sys_week - 8)
+dell_week_2 = as.character(sys_week - 7)
+dell_week_3 = as.character(sys_week - 9)
+dell_week_4 = as.character(sys_week - 10)
+dell_date_1 = paste(substr(dell_year,1,4),dell_week_1,sep="-W")
+dell_date_2 = paste(substr(dell_year,1,4),dell_week_2,sep="-W")
+dell_date_3 = paste(substr(dell_year,1,4),dell_week_3,sep="-W")
+dell_date_4 = paste(substr(dell_year,1,4),dell_week_4,sep="-W")
+latest_4_weeks = c(dell_date_1,dell_date_2,dell_date_3,dell_date_4)
+
+# Server_Data<-Server_Data[Server_Data$`Fiscal Week` %in% latest_4_weeks,]
+# DCI_Data<-DCI_Data[DCI_Data$`Fiscal Week`%in% latest_4_weeks,]
+# TPY_Data<-TPY_Data[TPY_Data$`Fiscal Week`%in% latest_4_weeks,]
+# Parts_Data<-Parts_Data[Parts_Data$`Fiscal Week`%in% latest_4_weeks,]
+
+Server_data = filter(Base_Data_Full, grepl('Server',LOB))
+DCI_data = filter(Base_Data_Full, grepl('DCI',LOB))
+TPY_data = filter(Base_Data_Full, grepl('TPY',LOB))
+Parts_data = filter(Base_Data_Full, grepl('Parts',LOB))
+
+
+
+DCI_Base_data<-DCI_data[,c("Sub Region","Country","Affinity ID","Partner Name","Partner Type","RTM","Route To Market",
+                           "Account Manager","Sales Rep","Business Unit","Flag")]
+
+TPY_Base_Data<-TPY_data[,c("Sub Region","Country","Affinity ID","Partner Name","Partner Type","RTM","Route To Market",
+                           "Account Manager","Sales Rep","Business Unit","Flag")]
+
+Parts_Base_Data<-Parts_data[,c("Sub Region","Country","Affinity ID","Partner Name","Partner Type","RTM","Route To Market",
+                               "Account Manager","Sales Rep","Business Unit","Flag")]
+
+
+Server_Base_Data<-Server_data[,c("Sub Region","Country","Affinity ID","Partner Name","Partner Type","RTM","Route To Market",
+                                 "Account Manager","Sales Rep","Business Unit","Flag")]
+
+
+Base_Data<-rbind(Server_Base_Data,Parts_Base_Data,TPY_Base_Data,DCI_Base_data)
+Base_Data<-unique(Base_Data)
+
+Base_Data<-data.frame(Key=paste(Base_Data$`Sub Region`,"-",Base_Data$Country,"-",Base_Data$`Affinity ID`,"-",
+                                Base_Data$`Partner Name`,"-",Base_Data$`Partner Type`,"-",Base_Data$RTM,"-",Base_Data$`Route To Market`,
+                                "-",Base_Data$`Account Manager`,"-",Base_Data$`Sales Rep`,"-",Base_Data$`Business Unit`),Base_Data)
+
+                                  #######Preparing server data KPIs#######
+
+server_data_KPIs<-data.frame(Key=paste(Server_Base_Data$`Sub Region`,"-",Server_Base_Data$Country,"-",Server_Base_Data$`Affinity ID`,"-",
+                                       Server_Base_Data$`Partner Name`,"-",Server_Base_Data$`Partner Type`,"-",Server_Base_Data$RTM,"-",
+                                       Server_Base_Data$`Route To Market`,"-",Server_Base_Data$`Account Manager`,"-",Server_Base_Data$`Sales Rep`,
+                                       "-",Server_Base_Data$`Business Unit`)
+                             ,Server_Data[,c("Fiscal Week","Revenue ESG EUC SnP","Margin ESG EUC SnP")])
+
+server_data_KPIs<-server_data_KPIs[server_data_KPIs$Fiscal.Week%in% latest_4_weeks,]
+server_data_KPIs_Revenue<-server_data_KPIs[,c("Key","Fiscal.Week","Revenue.ESG.EUC.SnP")]
+server_data_KPIs_Margin<-server_data_KPIs[,c("Key","Fiscal.Week","Margin.ESG.EUC.SnP")]
+server_data_KPIs_Revenue_Tranpose<-(dcast(server_data_KPIs_Revenue,Key~Fiscal.Week,sum))
+server_data_KPIs_Margin_Tranpose<-(dcast(server_data_KPIs_Margin,Key~Fiscal.Week,sum))
+names(server_data_KPIs_Revenue_Tranpose)[2:5]<-paste("Server Revenue","-",names(server_data_KPIs_Revenue_Tranpose)[2:5])
+names(server_data_KPIs_Margin_Tranpose)[2:5]<-paste("Server Margin","-",names(server_data_KPIs_Margin_Tranpose)[2:5])
+Server_data_KPIs_Transpose<-merge(server_data_KPIs_Revenue_Tranpose,
+                                  server_data_KPIs_Margin_Tranpose,by="Key")
+
+#####Preparing data for DCI LOB#####
+
+DCI_Data_KPIs<-data.frame(Key=paste(DCI_Data$`Sub Region`,"-",DCI_Data$Country,"-",DCI_Data$`Affinity ID`,"-",
+                                    DCI_Data$`Partner Name`,"-",DCI_Data$`Partner Type`,"-",DCI_Data$RTM,"-",
+                                    DCI_Data$`Route To Market`,"-",DCI_Data$`Account Manager`,"-",
+                                    DCI_Data$`Sales Rep`,"-",DCI_Data$`Business Unit`)
+                          ,DCI_Data[,c("Fiscal Week","Revenue ESG EUC SnP","Margin ESG EUC SnP")])
+
+DCI_Data_KPIs<-DCI_Data_KPIs[DCI_Data_KPIs$Fiscal.Week%in% latest_4_weeks,]
+DCI_Data_KPIs_Revenue<-DCI_Data_KPIs[,c("Key","Fiscal.Week","Revenue.ESG.EUC.SnP")]
+DCI_Data_KPIs_Margin<-DCI_Data_KPIs[,c("Key","Fiscal.Week","Margin.ESG.EUC.SnP")]
+DCI_Data_KPIs_Revenue_Tranpose<-(dcast(DCI_Data_KPIs_Revenue,Key~Fiscal.Week,sum))
+DCI_Data_KPIs_Margin_Tranpose<-(dcast(DCI_Data_KPIs_Margin,Key~Fiscal.Week,sum))
+names(DCI_Data_KPIs_Revenue_Tranpose)[2:5]<-paste("DCI Revenue","-",names(DCI_Data_KPIs_Revenue_Tranpose)[2:5])
+names(DCI_Data_KPIs_Margin_Tranpose)[2:5]<-paste("DCI Margin","-",names(DCI_Data_KPIs_Margin_Tranpose)[2:5])
+DCI_data_KPIs_Transpose<-merge(DCI_Data_KPIs_Revenue_Tranpose,
+                               DCI_Data_KPIs_Margin_Tranpose,by="Key")
+
+
+#####Preparing Data for TPY LOB#####
+TPY_Data_KPIs<-data.frame(Key=paste(TPY_Data$`Sub Region`,"-",TPY_Data$Country,"-",TPY_Data$`Affinity ID`,"-",
+                                    TPY_Data$`Partner Name`,"-",TPY_Data$`Partner Type`,"-",TPY_Data$RTM,"-",
+                                    TPY_Data$`Route To Market`,"-",TPY_Data$`Account Manager`,"-",TPY_Data$`Sales Rep`,
+                                    "-",TPY_Data$`Business Unit`)
+                          ,TPY_Data[,c("Fiscal Week","Revenue ESG EUC SnP","Margin ESG EUC SnP")])
+
+TPY_Data_KPIs<-TPY_Data_KPIs[TPY_Data_KPIs$Fiscal.Week%in% latest_4_weeks,]
+TPY_Data_KPIs_Revenue<-TPY_Data_KPIs[,c("Key","Fiscal.Week","Revenue.ESG.EUC.SnP")]
+TPY_Data_KPIs_Margin<-TPY_Data_KPIs[,c("Key","Fiscal.Week","Margin.ESG.EUC.SnP")]
+TPY_Data_KPIs_Revenue_Tranpose<-(dcast(TPY_Data_KPIs_Revenue,Key~Fiscal.Week,sum))
+TPY_Data_KPIs_Margin_Tranpose<-(dcast(TPY_Data_KPIs_Margin,Key~Fiscal.Week,sum))
+names(TPY_Data_KPIs_Revenue_Tranpose)[2:5]<-paste("TPY Revenue","-",names(TPY_Data_KPIs_Revenue_Tranpose)[2:5])
+names(TPY_Data_KPIs_Margin_Tranpose)[2:5]<-paste("TPY Margin","-",names(TPY_Data_KPIs_Margin_Tranpose)[2:5])
+TPY_data_KPIs_Transpose<-merge(TPY_Data_KPIs_Revenue_Tranpose,
+                               TPY_Data_KPIs_Margin_Tranpose,by="Key")
+
+#####Preparing data for parts LOB#####
+Parts_Data_KPIs<-data.frame(Key=paste(Parts_Data$`Sub Region`,"-",Parts_Data$Country,"-",Parts_Data$`Affinity ID`,"-",
+                                      Parts_Data$`Partner Name`,"-",Parts_Data$`Partner Type`,"-",Parts_Data$RTM,
+                                      "-",Parts_Data$`Route To Market`,"-",Parts_Data$`Account Manager`,"-",Parts_Data$`Sales Rep`,"-",
+                                      Parts_Data$`Business Unit`)
+                            ,Parts_Data[,c("Fiscal Week","Revenue ESG EUC SnP","Margin ESG EUC SnP")])
+
+Parts_Data_KPIs<-Parts_Data_KPIs[Parts_Data_KPIs$Fiscal.Week%in% latest_4_weeks,]
+Parts_Data_KPIs_Revenue<-Parts_Data_KPIs[,c("Key","Fiscal.Week","Revenue.ESG.EUC.SnP")]
+Parts_Data_KPIs_Margin<-Parts_Data_KPIs[,c("Key","Fiscal.Week","Margin.ESG.EUC.SnP")]
+Parts_Data_KPIs_Revenue_Tranpose<-(dcast(Parts_Data_KPIs_Revenue,Key~Fiscal.Week,sum))
+Parts_Data_KPIs_Margin_Tranpose<-(dcast(Parts_Data_KPIs_Margin,Key~Fiscal.Week,sum))
+names(Parts_Data_KPIs_Revenue_Tranpose)[2:5]<-paste("Parts Revenue","-",names(Parts_Data_KPIs_Revenue_Tranpose)[2:5])
+names(Parts_Data_KPIs_Margin_Tranpose)[2:5]<-paste("Parts Margin","-",names(Parts_Data_KPIs_Margin_Tranpose)[2:5])
+Parts_data_KPIs_Transpose<-merge(Parts_Data_KPIs_Revenue_Tranpose,
+                                 Parts_Data_KPIs_Margin_Tranpose,by="Key")
+
+#####Merging the data with Base Data#####
+# Base_Data
+# Server_data_KPIs_Transpose
+# DCI_data_KPIs_Transpose
+# TPY_data_KPIs_Transpose
+# Parts_data_KPIs_Transpose
+
+
+Base_Data1 = filter(Base_Data1, !grepl('Canada',Country)) # Removing Canada 
+
+Base_Data1$Sub.Region[Base_Data1$Sub.Region=="Latin America"] ="LATAM"
+Base_Data1$Sub.Region[Base_Data1$Sub.Region=="United States and Canada"] ="NA"
+
+Base_Data1<-merge(Base_Data,Server_data_KPIs_Transpose,by.x = "Key",by.y = "Key",all.x = TRUE)
+Base_Data1<-merge(Base_Data1,DCI_data_KPIs_Transpose,by.x = "Key",by.y = "Key",all.x = TRUE)
+Base_Data1<-merge(Base_Data1,TPY_data_KPIs_Transpose,by.x = "Key",by.y = "Key",all.x = TRUE)
+Base_Data1<-merge(Base_Data1,Parts_data_KPIs_Transpose,by.x = "Key",by.y = "Key",all.x = TRUE)
+
+
+colnames(Base_Data1)[colSums(is.na(Base_Data1))>0]
+
+Base_Data1$Account.Manager[is.na(Base_Data1$Account.Manager)] ="-"
+Base_Data1$Sales.Rep[is.na(Base_Data1$Sales.Rep)] ="-"
+
+Base_Data1[is.na(Base_Data1)] = 0
+
+
+#Removing dots from column names
+names(Base_Data1) <- gsub("\\.", " ", names(Base_Data))
+
+
+# Base_data<-Base_Data1[,c("Key","Sub.Region","Country","Affinity.ID","Partner.Name",
+#                           "Partner.Type","RTM","Route.To.Market","Account.Manager","Sales.Rep","Business.Unit"
+#                           ,"Server Revenue - 2019-W13","Server Margin - 2019-W13",
+#                           "Server Revenue - 2019-W14","Server Margin - 2019-W14","EI Revenue - 2019-W13",
+#                           "EI Margin - 2019-W13","EI Revenue - 2019-W14","EI Margin - 2019-W14",
+#                           "DCI Revenue - 2019-W13","DCI Margin - 2019-W13","DCI Revenue - 2019-W14",
+#                           "DCI Margin - 2019-W14","TPY Revenue - 2019-W13",
+#                           "TPY Margin - 2019-W13","TPY Revenue - 2019-W14","TPY Margin - 2019-W14",
+#                           "Parts Revenue - 2019-W13","Parts Margin - 2019-W13",
+#                           "Parts Revenue - 2019-W14","Parts Margin - 2019-W14","Server Revenue - 2019-W15",
+#                           "Server Margin - 2019-W15","Server Revenue - 2019-W16","Server Margin - 2019-W16",
+#                           "EI Revenue - 2019-W15","EI Margin - 2019-W15","EI Revenue - 2019-W16","EI Margin - 2019-W16",
+#                           "DCI Revenue - 2019-W15","DCI Margin - 2019-W15","DCI Revenue - 2019-W16","DCI Margin - 2019-W16","TPY Revenue - 2019-W15","TPY Margin - 2019-W15",
+#                           "TPY Revenue - 2019-W16","TPY Margin - 2019-W16","Parts Revenue - 2019-W15","Parts Margin - 2019-W15","Parts Revenue - 2019-W16",
+#                           "Parts Margin - 2019-W16")]
+
+Base_Data1 = Base_Data1[,-1] # Dropping Key column
+Base_data = Base_Data1[,c(1,2,3,4,5,6,8,9,10,
+                          11,15,12,16,13,17,14,18,
+                          19,23,20,24,21,25,22,26,
+                          35,39,36,40,37,41,38,42,
+                          27,31,28,32,29,33,30,34)]
+
+# Key1<-paste(Base_Data2$Sub.Region,"-",Base_Data2$Country,"-",Base_Data2$Affinity.ID,
+#             "-",Base_Data2$Partner.Name,"-",Base_Data2$Partner.Type,"-",
+#             Base_Data2$RTM)
+# #Key1<-paste(Base_Data2$Sub.Region,"-",Base_Data2$Country,"-",Base_Data2$Account.ID__1,
+# #            "-",Base_Data2$Account.Name__1,"-",Base_Data2$Partner.Type,"-",
+# #           Base_Data2$Route.To.Market,"-",Base_Data2$Account.SR...First.Manager.Name,"-",
+# #            Base_Data2$Owner.Name)
+# 
+# Base_Data3<-data.frame(Key1,Base_Data2)
+# Base_Data4<-merge(Base_Data3,Target_Accounts[,c("Key","Flag")],by.x="Key1",by.y = "Key",all.x = TRUE)
+# Base_Data4[which(is.na(Base_Data4$Flag)),c("Flag")]<-0
+
+
+write.csv(Base_data,file="Base_data.csv",row.names = FALSE)
+
